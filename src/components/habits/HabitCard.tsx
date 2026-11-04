@@ -5,6 +5,7 @@ import { Habit } from '@/types/habit';
 import { getHabitSlug } from '@/lib/slug';
 import { calculateCurrentStreak } from '@/lib/streaks';
 import { toggleHabitCompletion } from '@/lib/habits';
+import { getLocalDate } from '@/lib/date';
 
 interface HabitCardProps {
   habit: Habit;
@@ -16,7 +17,7 @@ interface HabitCardProps {
 const HabitCard: React.FC<HabitCardProps> = ({ habit, onToggle, onEdit, onDelete }) => {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const slug = getHabitSlug(habit.name);
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDate();
   const isCompletedToday = habit.completions.includes(today);
   const streak = calculateCurrentStreak(habit.completions, today);
 
