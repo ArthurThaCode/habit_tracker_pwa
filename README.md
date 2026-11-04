@@ -57,8 +57,8 @@ Coverage is measured on `src/lib` only. Components and the service worker are ex
 
 | Command | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| `npm run test:unit` | 64.15% | 51.61% | 53.84% | 66.66% |
-| `npx vitest run --coverage` (unit and integration) | 92.45% | 80.64% | 100% | 97.91% |
+| `npm run test:unit` | 51.51% | 51.61% | 36.84% | 54.23% |
+| `npx vitest run --coverage` (unit and integration) | 93.93% | 80.64% | 100% | 98.3% |
 
 The first line is lower because `src/lib/storage.ts` is only exercised by the integration tests.
 
@@ -70,7 +70,7 @@ The application uses `localStorage` for all data persistence. This ensures the a
 2. `habit-tracker-session`: Stores the active session object (`{ userId, email }`) or `null` if unauthenticated.
 3. `habit-tracker-habits`: Stores a JSON array of all habits created by all users (`{ id, userId, name, description, frequency, createdAt, completions }`).
 
-When a user logs in, the app filters the `habit-tracker-habits` array to only show habits where `userId` matches the current session.
+When a user logs in, the app filters the `habit-tracker-habits` array to only show habits where `userId` matches the current session. The dashboard reads these keys with `useSyncExternalStore`; the server snapshot is "no session", so the server HTML matches the first client render.
 
 ## PWA Implementation
 

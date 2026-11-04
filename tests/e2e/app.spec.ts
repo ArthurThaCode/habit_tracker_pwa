@@ -92,6 +92,9 @@ test.describe('Habit Tracker app', () => {
   });
 
   test('persists session and habits after page reload', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+
     await page.goto('/login');
     await page.evaluate(() => {
       localStorage.setItem('habit-tracker-session', JSON.stringify({ userId: 'u1', email: 'test@example.com' }));
@@ -101,6 +104,9 @@ test.describe('Habit Tracker app', () => {
     await expect(page.getByTestId('habit-card-persisted-habit')).toBeVisible();
     await page.reload();
     await expect(page.getByTestId('habit-card-persisted-habit')).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard/);
+    // A direct load must hydrate without a mismatch between the server and the client.
+    expect(pageErrors).toEqual([]);
   });
 
   test('logs out and redirects to /login', async ({ page }) => {

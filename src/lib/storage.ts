@@ -7,7 +7,24 @@ const KEYS = {
   HABITS: 'habit-tracker-habits',
 };
 
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((listener) => listener());
+
 export const storage = {
+  // Lets React subscribe to changes made in this tab and in other tabs.
+  subscribe: (listener: () => void) => {
+    listeners.add(listener);
+    window.addEventListener('storage', listener);
+    return () => {
+      listeners.delete(listener);
+      window.removeEventListener('storage', listener);
+    };
+  },
+
+  // Raw JSON strings: useSyncExternalStore needs snapshots that stay identical until the data changes.
+  getSessionSnapshot: () => localStorage.getItem(KEYS.SESSION),
+  getHabitsSnapshot: () => localStorage.getItem(KEYS.HABITS),
+
   getUsers: (): User[] => {
     if (typeof window === 'undefined') return [];
     const data = localStorage.getItem(KEYS.USERS);
@@ -30,6 +47,7 @@ export const storage = {
     } else {
       localStorage.setItem(KEYS.SESSION, JSON.stringify(session));
     }
+    notify();
   },
 
   getHabits: (): Habit[] => {
@@ -40,5 +58,6 @@ export const storage = {
 
   setHabits: (habits: Habit[]) => {
     localStorage.setItem(KEYS.HABITS, JSON.stringify(habits));
+    notify();
   },
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { storage } from '@/lib/storage';
 import { Habit } from '@/types/habit';
@@ -10,26 +10,24 @@ import HabitForm from '@/components/habits/HabitForm';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
-  const [habits, setHabits] = useState<Habit[]>([]);
+  // The server has no localStorage, so its snapshot is "no session" and its HTML matches the first client render.
+  const sessionJson = useSyncExternalStore(storage.subscribe, storage.getSessionSnapshot, () => null);
+  const habitsJson = useSyncExternalStore(storage.subscribe, storage.getHabitsSnapshot, () => null);
+  const session = useMemo<Session | null>(() => (sessionJson ? JSON.parse(sessionJson) : null), [sessionJson]);
+  const habits = useMemo<Habit[]>(
+    () => (session && habitsJson ? JSON.parse(habitsJson).filter((h: Habit) => h.userId === session.userId) : []),
+    [session, habitsJson]
+  );
   const [isAdding, setIsAdding] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
   useEffect(() => {
-    const currentSession = storage.getSession();
-    if (!currentSession) {
-      router.push('/login');
-      return;
-    }
-    // localStorage only exists in the browser: reading it after hydration keeps the first render identical to the server's.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSession(currentSession);
-    setHabits(storage.getHabits().filter((h) => h.userId === currentSession.userId));
-  }, [router]);
+    // Reads storage directly: during hydration the snapshot above is still the server's "no session".
+    if (!storage.getSession()) router.push('/login');
+  }, [router, sessionJson]);
 
   const handleLogout = () => {
     storage.setSession(null);
-    router.push('/login');
   };
 
   const handleCreateOrUpdate = (data: Partial<Habit>) => {
@@ -54,7 +52,6 @@ export default function DashboardPage() {
     }
 
     storage.setHabits(updatedHabits);
-    setHabits(updatedHabits.filter((h) => h.userId === session!.userId));
     setIsAdding(false);
     setEditingHabit(null);
   };
@@ -65,14 +62,12 @@ export default function DashboardPage() {
       h.id === updatedHabit.id ? updatedHabit : h
     );
     storage.setHabits(updatedAllHabits);
-    setHabits(updatedAllHabits.filter((h) => h.userId === session!.userId));
   };
 
   const handleDelete = (id: string) => {
     const allHabits = storage.getHabits();
     const updatedAllHabits = allHabits.filter((h) => h.id !== id);
     storage.setHabits(updatedAllHabits);
-    setHabits(updatedAllHabits.filter((h) => h.userId === session!.userId));
   };
 
   if (!session) return null;
