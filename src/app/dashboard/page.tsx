@@ -4,24 +4,28 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { storage } from '@/lib/storage';
 import { Habit } from '@/types/habit';
+import { Session } from '@/types/auth';
 import HabitCard from '@/components/habits/HabitCard';
 import HabitForm from '@/components/habits/HabitForm';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [session, setSession] = useState(storage.getSession());
+  const [session, setSession] = useState<Session | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
   useEffect(() => {
-    if (!session) {
+    const currentSession = storage.getSession();
+    if (!currentSession) {
       router.push('/login');
       return;
     }
-    const allHabits = storage.getHabits();
-    setHabits(allHabits.filter((h) => h.userId === session.userId));
-  }, [session, router]);
+    // localStorage only exists in the browser: reading it after hydration keeps the first render identical to the server's.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSession(currentSession);
+    setHabits(storage.getHabits().filter((h) => h.userId === currentSession.userId));
+  }, [router]);
 
   const handleLogout = () => {
     storage.setSession(null);
