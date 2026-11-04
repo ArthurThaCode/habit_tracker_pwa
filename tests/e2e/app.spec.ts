@@ -34,14 +34,30 @@ test.describe('Habit Tracker app', () => {
   test('logs in an existing user and loads only that user\'s habits', async ({ page }) => {
     await page.goto('/login');
     await page.evaluate(() => {
-      localStorage.setItem('habit-tracker-users', JSON.stringify([{ id: 'u1', email: 'user@example.com', password: 'password123', createdAt: '' }]));
-      localStorage.setItem('habit-tracker-habits', JSON.stringify([{ id: 'h1', userId: 'u1', name: 'User 1 Habit', description: '', frequency: 'daily', createdAt: '', completions: [] }]));
+      localStorage.setItem('habit-tracker-users', JSON.stringify([
+        { id: 'u1', email: 'user@example.com', password: 'password123', createdAt: '' },
+        { id: 'u2', email: 'other@example.com', password: 'password456', createdAt: '' },
+      ]));
+      localStorage.setItem('habit-tracker-habits', JSON.stringify([
+        { id: 'h1', userId: 'u1', name: 'User 1 Habit', description: '', frequency: 'daily', createdAt: '', completions: [] },
+        { id: 'h2', userId: 'u2', name: 'User 2 Habit', description: '', frequency: 'daily', createdAt: '', completions: [] },
+      ]));
     });
     await page.getByTestId('auth-login-email').fill('user@example.com');
     await page.getByTestId('auth-login-password').fill('password123');
     await page.getByTestId('auth-login-submit').click();
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByText('User 1 Habit')).toBeVisible();
+    await expect(page.getByText('User 2 Habit')).toHaveCount(0);
+
+    await page.getByTestId('auth-logout-button').click();
+    await expect(page).toHaveURL(/\/login/);
+    await page.getByTestId('auth-login-email').fill('other@example.com');
+    await page.getByTestId('auth-login-password').fill('password456');
+    await page.getByTestId('auth-login-submit').click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByText('User 2 Habit')).toBeVisible();
+    await expect(page.getByText('User 1 Habit')).toHaveCount(0);
   });
 
   test('creates a habit from the dashboard', async ({ page }) => {
