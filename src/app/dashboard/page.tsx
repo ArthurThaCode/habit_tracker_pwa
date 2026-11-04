@@ -115,7 +115,7 @@ export default function DashboardPage() {
 
         {habits.length === 0 ? (
           <div data-testid="empty-state" className="text-center py-20 bg-white border border-dashed border-gray-300 rounded-lg">
-            <p className="text-gray-500">You haven't added any habits yet.</p>
+            <p className="text-gray-500">You haven&apos;t added any habits yet.</p>
             <button
               onClick={() => setIsAdding(true)}
               className="mt-2 text-blue-600 font-medium hover:underline"
