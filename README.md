@@ -4,9 +4,11 @@ A mobile-first Habit Tracker Progressive Web App (PWA) built with Next.js, React
 
 ## Project Overview
 
-This project was built to fulfill the technical requirements of the Stage 3 Frontend execution task. It is a fully functional web application that focuses on deterministic behavior, correct technical implementation of utility functions, strict UI/UX constraints, and comprehensive test coverage.
+This project was built to fulfill the technical requirements of the Stage 3 Frontend execution task. It is a fully functional web application that focuses on deterministic behavior, correct technical implementation of utility functions, strict UI/UX constraints, and automated unit, integration, and end-to-end tests.
 
 ## Setup Instructions
+
+Requires Node.js 22.
 
 1. **Clone the repository** (if applicable) or navigate to the project directory.
 2. **Install dependencies**:
@@ -49,6 +51,17 @@ The project uses Vitest for unit and integration testing, and Playwright for end
   npm run test
   ```
 
+### Coverage
+
+Coverage is measured on `src/lib` only. Components and the service worker are exercised by the integration and end-to-end tests, but are not counted.
+
+| Command | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| `npm run test:unit` | 64.15% | 51.61% | 53.84% | 66.66% |
+| `npx vitest run --coverage` (unit and integration) | 92.45% | 80.64% | 100% | 97.91% |
+
+The first line is lower because `src/lib/storage.ts` is only exercised by the integration tests.
+
 ## Local Persistence Structure
 
 The application uses `localStorage` for all data persistence. This ensures the app works entirely client-side without needing a remote database. The storage structure uses three main keys:
@@ -65,7 +78,7 @@ The app is implemented as a Progressive Web App to support installability and ba
 
 - **Manifest**: Located at `public/manifest.json`. It defines the app's name, theme colors, display mode (`standalone`), and paths to the generated 192x192 and 512x512 icons.
 - **Service Worker**: Located at `public/sw.js`. It is registered client-side via the `PwaRegistration` component (`src/components/shared/PwaRegistration.tsx`).
-- **Caching Strategy**: The Service Worker implements a "Cache-First" strategy for the app shell (`/`, `/login`, `/signup`, `/dashboard`, and assets). It caches these paths on installation. During a fetch event, it attempts to serve from the cache first; if the network fails (offline), it falls back to the cached `/` route to prevent a hard crash.
+- **Caching Strategy**: The Service Worker implements a "Cache-First" strategy for the app shell (`/`, `/login`, `/signup`, `/dashboard`, and assets). It caches the pages, manifest, and icons on installation, and the `/_next/static/` bundles at runtime. During a fetch event, it attempts to serve from the cache first; if the network fails on a navigation (offline), it falls back to the cached `/` route to prevent a hard crash. Old caches are deleted on activation, so `CACHE_NAME` must be changed in `public/sw.js` when a release has to replace the cached pages.
 
 ## Trade-offs and Limitations
 
@@ -75,23 +88,23 @@ The app is implemented as a Progressive Web App to support installability and ba
 
 ## Test Mapping
 
-The test suite strictly verifies the behaviors required by the technical document.
+The test suite covers the behaviors required by the technical document.
 
 ### Unit Tests
 - `tests/unit/slug.test.ts`: Verifies `getHabitSlug` correctly formats strings into lowercase, hyphenated slugs while removing invalid characters.
 - `tests/unit/validators.test.ts`: Verifies `validateHabitName` correctly rejects empty strings and long strings, while trimming valid names.
 - `tests/unit/streaks.test.ts`: Verifies `calculateCurrentStreak` accurately calculates consecutive backward calendar days of completion.
 - `tests/unit/habits.test.ts`: Verifies `toggleHabitCompletion` accurately toggles dates without mutation or duplication.
+- `tests/unit/date.test.ts`: Verifies `getLocalDate` returns the calendar day in the user's time zone.
 
 ### Integration Tests
 - `tests/integration/auth-flow.test.tsx`: Verifies the React component behavior for the signup and login forms, including validation messages and session creation/redirection.
-- `tests/integration/habit-form.test.tsx`: Verifies the React component behavior for creating, editing, and deleting habits (with confirmation), as well as toggling completions.
+- `tests/integration/habit-form.test.tsx`: Renders the dashboard and verifies that a created habit appears in the list, editing keeps the immutable fields, nothing is deleted before confirmation, and toggling a completion changes the displayed streak.
 
 ### End-to-End Tests
 - `tests/e2e/app.spec.ts`: Verifies the full user journey in a real browser environment, including:
   - Splash screen routing and authentication guards.
-  - Complete signup/login flows leading to the dashboard.
+  - Complete signup/login flows leading to the dashboard, with data kept separate between two users.
   - Habit creation and streak updates in the DOM.
   - State persistence across page reloads.
-  - Offline app shell loading (intercepting the network).
-"# habit_tracker_pwa" 
+  - Offline app shell loading: Playwright's `setOffline` cuts the network, then the test reloads the page and checks that the login form is displayed.
