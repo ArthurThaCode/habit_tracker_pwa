@@ -129,6 +129,16 @@ test.describe('Habit Tracker app', () => {
       }
     });
     
+    // The JS and CSS bundles must be in the service worker cache, not only in the browser's HTTP cache
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const cache = await caches.open('habit-tracker-v2');
+          return (await cache.keys()).some((request) => new URL(request.url).pathname.startsWith('/_next/static/'));
+        })
+      )
+      .toBe(true);
+
     // Simulate offline
     await context.setOffline(true);
     
