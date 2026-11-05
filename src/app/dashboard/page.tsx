@@ -1,31 +1,33 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import { storage } from '@/lib/storage';
 import { Habit } from '@/types/habit';
+import { Session } from '@/types/auth';
 import HabitCard from '@/components/habits/HabitCard';
 import HabitForm from '@/components/habits/HabitForm';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [session, setSession] = useState(storage.getSession());
-  const [habits, setHabits] = useState<Habit[]>([]);
+  // The server has no localStorage, so its snapshot is "no session" and its HTML matches the first client render.
+  const sessionJson = useSyncExternalStore(storage.subscribe, storage.getSessionSnapshot, () => null);
+  const habitsJson = useSyncExternalStore(storage.subscribe, storage.getHabitsSnapshot, () => null);
+  const session = useMemo<Session | null>(() => (sessionJson ? JSON.parse(sessionJson) : null), [sessionJson]);
+  const habits = useMemo<Habit[]>(
+    () => (session && habitsJson ? JSON.parse(habitsJson).filter((h: Habit) => h.userId === session.userId) : []),
+    [session, habitsJson]
+  );
   const [isAdding, setIsAdding] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    const allHabits = storage.getHabits();
-    setHabits(allHabits.filter((h) => h.userId === session.userId));
-  }, [session, router]);
+    // Reads storage directly: during hydration the snapshot above is still the server's "no session".
+    if (!storage.getSession()) router.push('/login');
+  }, [router, sessionJson]);
 
   const handleLogout = () => {
     storage.setSession(null);
-    router.push('/login');
   };
 
   const handleCreateOrUpdate = (data: Partial<Habit>) => {
@@ -50,7 +52,6 @@ export default function DashboardPage() {
     }
 
     storage.setHabits(updatedHabits);
-    setHabits(updatedHabits.filter((h) => h.userId === session!.userId));
     setIsAdding(false);
     setEditingHabit(null);
   };
@@ -61,14 +62,12 @@ export default function DashboardPage() {
       h.id === updatedHabit.id ? updatedHabit : h
     );
     storage.setHabits(updatedAllHabits);
-    setHabits(updatedAllHabits.filter((h) => h.userId === session!.userId));
   };
 
   const handleDelete = (id: string) => {
     const allHabits = storage.getHabits();
     const updatedAllHabits = allHabits.filter((h) => h.id !== id);
     storage.setHabits(updatedAllHabits);
-    setHabits(updatedAllHabits.filter((h) => h.userId === session!.userId));
   };
 
   if (!session) return null;
@@ -111,7 +110,7 @@ export default function DashboardPage() {
 
         {habits.length === 0 ? (
           <div data-testid="empty-state" className="text-center py-20 bg-white border border-dashed border-gray-300 rounded-lg">
-            <p className="text-gray-500">You haven't added any habits yet.</p>
+            <p className="text-gray-500">You haven&apos;t added any habits yet.</p>
             <button
               onClick={() => setIsAdding(true)}
               className="mt-2 text-blue-600 font-medium hover:underline"

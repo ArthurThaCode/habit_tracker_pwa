@@ -1,7 +1,9 @@
+import { getLocalDate } from '@/lib/date';
+
 export function calculateCurrentStreak(completions: string[], today?: string): number {
   if (completions.length === 0) return 0;
 
-  const referenceDate = today || new Date().toISOString().split('T')[0];
+  const referenceDate = today || getLocalDate();
   
   // Remove duplicates and sort descending
   const uniqueDates = Array.from(new Set(completions)).sort((a, b) => b.localeCompare(a));

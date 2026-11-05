@@ -34,14 +34,30 @@ test.describe('Habit Tracker app', () => {
   test('logs in an existing user and loads only that user\'s habits', async ({ page }) => {
     await page.goto('/login');
     await page.evaluate(() => {
-      localStorage.setItem('habit-tracker-users', JSON.stringify([{ id: 'u1', email: 'user@example.com', password: 'password123', createdAt: '' }]));
-      localStorage.setItem('habit-tracker-habits', JSON.stringify([{ id: 'h1', userId: 'u1', name: 'User 1 Habit', description: '', frequency: 'daily', createdAt: '', completions: [] }]));
+      localStorage.setItem('habit-tracker-users', JSON.stringify([
+        { id: 'u1', email: 'user@example.com', password: 'password123', createdAt: '' },
+        { id: 'u2', email: 'other@example.com', password: 'password456', createdAt: '' },
+      ]));
+      localStorage.setItem('habit-tracker-habits', JSON.stringify([
+        { id: 'h1', userId: 'u1', name: 'User 1 Habit', description: '', frequency: 'daily', createdAt: '', completions: [] },
+        { id: 'h2', userId: 'u2', name: 'User 2 Habit', description: '', frequency: 'daily', createdAt: '', completions: [] },
+      ]));
     });
     await page.getByTestId('auth-login-email').fill('user@example.com');
     await page.getByTestId('auth-login-password').fill('password123');
     await page.getByTestId('auth-login-submit').click();
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByText('User 1 Habit')).toBeVisible();
+    await expect(page.getByText('User 2 Habit')).toHaveCount(0);
+
+    await page.getByTestId('auth-logout-button').click();
+    await expect(page).toHaveURL(/\/login/);
+    await page.getByTestId('auth-login-email').fill('other@example.com');
+    await page.getByTestId('auth-login-password').fill('password456');
+    await page.getByTestId('auth-login-submit').click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.getByText('User 2 Habit')).toBeVisible();
+    await expect(page.getByText('User 1 Habit')).toHaveCount(0);
   });
 
   test('creates a habit from the dashboard', async ({ page }) => {
@@ -76,6 +92,9 @@ test.describe('Habit Tracker app', () => {
   });
 
   test('persists session and habits after page reload', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+
     await page.goto('/login');
     await page.evaluate(() => {
       localStorage.setItem('habit-tracker-session', JSON.stringify({ userId: 'u1', email: 'test@example.com' }));
@@ -85,6 +104,9 @@ test.describe('Habit Tracker app', () => {
     await expect(page.getByTestId('habit-card-persisted-habit')).toBeVisible();
     await page.reload();
     await expect(page.getByTestId('habit-card-persisted-habit')).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard/);
+    // A direct load must hydrate without a mismatch between the server and the client.
+    expect(pageErrors).toEqual([]);
   });
 
   test('logs out and redirects to /login', async ({ page }) => {
@@ -113,6 +135,16 @@ test.describe('Habit Tracker app', () => {
       }
     });
     
+    // The JS and CSS bundles must be in the service worker cache, not only in the browser's HTTP cache
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const cache = await caches.open('habit-tracker-v2');
+          return (await cache.keys()).some((request) => new URL(request.url).pathname.startsWith('/_next/static/'));
+        })
+      )
+      .toBe(true);
+
     // Simulate offline
     await context.setOffline(true);
     

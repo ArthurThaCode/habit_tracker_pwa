@@ -9,6 +9,10 @@ export default function PwaRegistration() {
         navigator.serviceWorker.register('/sw.js').catch((err) => {
           console.error('ServiceWorker registration failed: ', err);
         });
+        navigator.serviceWorker.ready.then((registration) => {
+          const urls = performance.getEntriesByType('resource').map((entry) => entry.name);
+          registration.active?.postMessage({ type: 'CACHE_STATIC_ASSETS', urls });
+        });
       };
 
       if (document.readyState === 'complete') {
